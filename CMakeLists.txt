@@ -14,7 +14,7 @@
 #   along with SzimatSzatyor.  If not, see <http://www.gnu.org/licenses/>.
 
 project(SzimatSzatyor)
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 2.8.12)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
