@@ -1,7 +1,7 @@
 # PacketSniffer
 
-| :warning: This is a modified project SzimatSzatyor, forked to add new functionality. Original project: https://github.com/Anubisss/SzimatSzatyor |
-|--------------------------------------------------------------------------------------------------------------------------------------------------|
+| :warning: This is a modified project SzimatSzatyor, forked to add new functionality.<br/> Original project: https://github.com/Anubisss/SzimatSzatyor |
+|-------------------------------------------------------------------------------------------------------------------------------------------------------|
 
 PacketSniffer is a WoW (World of Warcraft) injector sniffer written in C++.
 A sniffer can log packets which sended by the server and which sended by
