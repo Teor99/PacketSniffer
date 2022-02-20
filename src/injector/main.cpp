@@ -1,18 +1,18 @@
 /*
- * This file is part of SzimatSzatyor.
+ * This file is part of PacketSniffer.
  *
- * SzimatSzatyor is free software: you can redistribute it and/or modify
+ * PacketSniffer is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
 
- * SzimatSzatyor is distributed in the hope that it will be useful,
+ * PacketSniffer is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
 
  * You should have received a copy of the GNU General Public License
- * along with SzimatSzatyor.  If not, see <http://www.gnu.org/licenses/>.
+ * along with PacketSniffer.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <Windows.h>
@@ -31,7 +31,7 @@
 // default name of the process which will be hooked
 const char* lookingProcessName = "Wow.exe";
  // this DLL will be injected
-const char injectDLLName[] = "szimat.dll";
+const char injectDLLName[] = "sniffer.dll";
 
 // this module contains function loadDLLFunctionName
 const char loadedModuleName[] = "kernel32.dll";
@@ -55,18 +55,18 @@ bool InjectDLL(DWORD /* processID */, const char* /* dllLocation */);
 int main(int argc, char* argv[])
 {
     // nice title :)
-    SetConsoleTitle("SzimatSzatyor, WoW injector sniffer");
+    SetConsoleTitle("PacketSniffer, WoW injector sniffer");
 
     // some info
-    printf("Welcome to SzimatSzatyor, a WoW injector sniffer.\n");
-    printf("SzimatSzatyor is distributed under the GNU GPLv3 license.\n");
-    printf("Source code is available at: ");
-    printf("http://github.com/Anubisss/SzimatSzatyor\n\n");
+    printf("Welcome to PacketSniffer, a WoW injector sniffer.\n");
+    printf("PacketSniffer is distributed under the GNU GPLv3 license.\n");
+    printf("Source code is available at github: https://github.com/Teor99/PacketSniffer\n");
+    printf("PacketSniffer is modified version of SzimatSzatyor project (github: https://github.com/Anubisss/SzimatSzatyor)\n\n");
 
     if (argc > 2)
     {
         printf("ERROR: Invalid parameters. ");
-        printf("\"szatyor.exe [wow_exe_name]\" should be used.\n\n");
+        printf("\"injector.exe [wow_exe_name]\" should be used.\n\n");
         system("pause");
         return 1;
     }
@@ -225,7 +225,7 @@ int main(int argc, char* argv[])
     // copies injector's full path to dllPath
     strncpy_s(dllPath, MAX_PATH, injectorPath, injectorPathSize);
 
-    // some magic to replace path/szatyor.exe to path/szimat.dll
+    // some magic to replace path/injector.exe to path/sniffer.dll
     // removes injector's name
     PathRemoveFileSpec(dllPath);
     // appends DLL's name

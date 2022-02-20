@@ -1,18 +1,18 @@
 /*
- * This file is part of SzimatSzatyor.
+ * This file is part of PacketSniffer.
  *
- * SzimatSzatyor is free software: you can redistribute it and/or modify
+ * PacketSniffer is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
 
- * SzimatSzatyor is distributed in the hope that it will be useful,
+ * PacketSniffer is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
 
  * You should have received a copy of the GNU General Public License
- * along with SzimatSzatyor.  If not, see <http://www.gnu.org/licenses/>.
+ * along with PacketSniffer.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <Windows.h>
@@ -162,10 +162,10 @@ DWORD MainThreadControl(LPVOID /* param */)
         FreeLibraryAndExitThread((HMODULE)instanceDLL, 0);
 
     // some info
-    printf("Welcome to SzimatSzatyor, a WoW injector sniffer.\n");
-    printf("SzimatSzatyor is distributed under the GNU GPLv3 license.\n");
-    printf("Source code is available at: ");
-    printf("http://github.com/Anubisss/SzimatSzatyor\n\n");
+    printf("Welcome to PacketSniffer, a WoW injector sniffer.\n");
+    printf("PacketSniffer is distributed under the GNU GPLv3 license.\n");
+    printf("Source code is available at github: https://github.com/Teor99/PacketSniffer\n");
+    printf("PacketSniffer is modified version of SzimatSzatyor project (github: https://github.com/Anubisss/SzimatSzatyor)\n\n");
 
     printf("Press CTRL-C (CTRL then c) to stop sniffing ");
     printf("(and exit from the sniffer).\n");
@@ -174,7 +174,7 @@ DWORD MainThreadControl(LPVOID /* param */)
 
     printf("User friendly format dump is disabled by default.\n");
     printf("To enable just create a file which name is ");
-    printf("\"dump_user_friendly\".\nDelete if you wan't to disable it.\n");
+    printf("\"dump_user_friendly\".\nDelete if you want to disable it.\n");
     printf("You can NOT enable/disable if you sniffer already started.\n\n");
 
     // inits the HookManager
