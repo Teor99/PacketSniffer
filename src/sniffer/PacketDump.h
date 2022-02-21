@@ -144,6 +144,14 @@ public:
         time_t rawTime;
         time(&rawTime);
 
+        // dumps the binary format of the packet to socket
+        dumpPacketToSocket(packetType,
+                             packetOpcode,
+                             packetSize,
+                             buffer,
+                             rawTime,
+                             initialReadOffset);
+
         // dumps the binary format of the packet
         dumpPacketBinary(packetType,
                          packetOpcode,
@@ -253,6 +261,34 @@ private:
         }
 
         fflush(binaryDumpFile);
+    }
+
+    // send the packet in Trinity's WPP format
+    // https://github.com/TrinityCore/WowPacketParser
+    void dumpPacketToSocket(PacketType packetType, DWORD packetOpcode, DWORD packetSize, DWORD buffer, time_t timestamp, WORD initialReadOffset) {
+        if (!isSocketDumpEnabled) return;
+
+        DWORD memBufferSize = 4 + 4 + 4 + 1 + packetSize;
+        DWORD offset = 0;
+        char *memBuffer = (char *)(malloc(memBufferSize));
+
+        memcpy(memBuffer + offset, &packetOpcode, 4); offset += 4;
+        memcpy(memBuffer + offset, &packetSize, 4); offset += 4;
+        memcpy(memBuffer + offset, &timestamp, 4); offset += 4;
+        memcpy(memBuffer + offset, &packetType, 1); offset += 1;
+        memcpy(memBuffer + offset, (char*)buffer + initialReadOffset, packetSize);
+
+        // Send an initial buffer
+        int iResult = send( dumpSocket, memBuffer, memBufferSize, 0 );
+        if (iResult == SOCKET_ERROR) {
+            printf("send failed with error: %d\n", WSAGetLastError());
+            closesocket(dumpSocket);
+            WSACleanup();
+            dumpSocket = NULL;
+            isSocketDumpEnabled = false;
+        }
+
+        free(memBuffer);
     }
 
     void dumpPacketTextLog(PacketType packetType, DWORD packetOpcode, DWORD packetSize, DWORD buffer, time_t timestamp, WORD initialReadOffset) {
