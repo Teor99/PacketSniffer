@@ -23,11 +23,12 @@
 class PacketDump
 {
 private:
-    boolean isTextLogDumpEnabled = true;
-    boolean isBinaryDumpEnabled = true;
+    boolean isTextLogDumpEnabled = false;
+    boolean isBinaryDumpEnabled = false;
 
     char textLogDumpFilePath[MAX_PATH] = {0};
     char binaryDumpFilePath[MAX_PATH] = {0};
+    char configFilePath[MAX_PATH] = {0};
 
     FILE* textLogDumpFile = nullptr;
     FILE* binaryDumpFile = nullptr;
@@ -66,13 +67,27 @@ public:
         _snprintf(fileNameText, sizeof(fileNameText), "%s.log", fileNameTemplate);
         _snprintf(fileNameBinary, sizeof(fileNameBinary), "%s.bin", fileNameTemplate);
 
-        // some info
-        printf("Text log dump: %s\n", fileNameText);
-        printf("Binary dump:   %s\n\n", fileNameBinary);
-
         // simply appends the file names to the DLL's location
         _snprintf(textLogDumpFilePath, sizeof(textLogDumpFilePath), "%s\\%s", dllDirPath, fileNameText);
         _snprintf(binaryDumpFilePath, sizeof(binaryDumpFilePath), "%s\\%s", dllDirPath, fileNameBinary);
+
+        // read config
+        _snprintf(configFilePath, sizeof(configFilePath), "%s\\%s", dllDirPath, "config.ini");
+        isBinaryDumpEnabled = GetPrivateProfileInt("Settings", "enableDumpPacketsToBinaryFile", 0, configFilePath) > 0;
+        isTextLogDumpEnabled = GetPrivateProfileInt("Settings", "enableDumpPacketsToTextLogFile", 0, configFilePath) > 0;
+
+        // some info
+        if (isBinaryDumpEnabled) {
+            printf("Binary dump enabled to file:   %s\n", fileNameBinary);
+        } else {
+            printf("Binary dump disabled\n");
+        }
+
+        if (isTextLogDumpEnabled) {
+            printf("Text log dump enabled to file: %s\n", fileNameText);
+        } else {
+            printf("Text log dump disabled\n");
+        }
     }
 
     virtual ~PacketDump() {

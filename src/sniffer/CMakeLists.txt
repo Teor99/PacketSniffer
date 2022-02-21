@@ -38,8 +38,14 @@ if(WIN32)
                        ${CMAKE_COMMAND} -E copy
                        ${PROJECT_SOURCE_DIR}/README.md
                        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+
     add_custom_command(TARGET sniffer POST_BUILD COMMAND
                        ${CMAKE_COMMAND} -E copy
                        ${PROJECT_SOURCE_DIR}/COPYING
+                       ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+
+    add_custom_command(TARGET sniffer POST_BUILD COMMAND
+                       ${CMAKE_COMMAND} -E copy
+                       ${PROJECT_SOURCE_DIR}/config.ini
                        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 endif()
