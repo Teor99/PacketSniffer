@@ -25,6 +25,7 @@ target_link_libraries(sniffer
     Psapi
     shlwapi
     version
+    Ws2_32
 )
 
 include_directories(

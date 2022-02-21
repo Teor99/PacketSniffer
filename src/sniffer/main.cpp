@@ -15,6 +15,7 @@
  * along with PacketSniffer.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define _WINSOCKAPI_
 #include <Windows.h>
 #include <Shlwapi.h>
 
@@ -209,7 +210,7 @@ DWORD MainThreadControl(LPVOID /* param */)
         system("pause");
         FreeLibraryAndExitThread((HMODULE)instanceDLL, 0);
     }
-    printf("\nDLL path: %s\n", dllPath);
+    printf("\nDLL path: %s\n\n", dllPath);
 
     // removes the DLL name from the path
     PathRemoveFileSpec(dllPath);
@@ -233,6 +234,7 @@ DWORD MainThreadControl(LPVOID /* param */)
                       machineCodeHookSend,
                       defaultMachineCodeSend);
 
+    printf("\n");
     printf("Send is hooked.\n");
 
     // gets address of NetClient::ProcessMessage

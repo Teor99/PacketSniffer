@@ -18,6 +18,8 @@
 #pragma once
 
 #include <ctime>
+#include <winsock2.h>
+#include <ws2tcpip.h>
 
 // this class encapsulates functions which logging the packets
 class PacketDump
@@ -25,11 +27,17 @@ class PacketDump
 private:
     boolean isTextLogDumpEnabled = false;
     boolean isBinaryDumpEnabled = false;
+    boolean isSocketDumpEnabled = false;
 
     char textLogDumpFilePath[MAX_PATH] = {0};
     char binaryDumpFilePath[MAX_PATH] = {0};
     char configFilePath[MAX_PATH] = {0};
 
+
+    char socketHost[MAX_PATH] = {0};
+    int socketPort = 0;
+
+    SOCKET dumpSocket = NULL;
     FILE* textLogDumpFile = nullptr;
     FILE* binaryDumpFile = nullptr;
 
@@ -71,10 +79,15 @@ public:
         _snprintf(textLogDumpFilePath, sizeof(textLogDumpFilePath), "%s\\%s", dllDirPath, fileNameText);
         _snprintf(binaryDumpFilePath, sizeof(binaryDumpFilePath), "%s\\%s", dllDirPath, fileNameBinary);
 
-        // read config
+        // config path
         _snprintf(configFilePath, sizeof(configFilePath), "%s\\%s", dllDirPath, "config.ini");
+
+        // read config
         isBinaryDumpEnabled = GetPrivateProfileInt("Settings", "enableDumpPacketsToBinaryFile", 0, configFilePath) > 0;
         isTextLogDumpEnabled = GetPrivateProfileInt("Settings", "enableDumpPacketsToTextLogFile", 0, configFilePath) > 0;
+        isSocketDumpEnabled = GetPrivateProfileInt("Settings", "enableDumpPacketsToSocket", 0, configFilePath) > 0;
+        GetPrivateProfileString("Settings", "socketHost", "127.0.0.1", socketHost, sizeof(socketHost), configFilePath);
+        socketPort = GetPrivateProfileInt("Settings", "socketPort", 6666, configFilePath);
 
         // some info
         if (isBinaryDumpEnabled) {
@@ -88,9 +101,20 @@ public:
         } else {
             printf("Text log dump disabled\n");
         }
+
+        if (isSocketDumpEnabled) {
+            printf("Socket dump enabled to:        %s:%d\n", socketHost, socketPort);
+            initSocket();
+        } else {
+            printf("Socket dump disabled\n");
+        }
     }
 
     virtual ~PacketDump() {
+        if (dumpSocket) {
+            destroySocket();
+        }
+
         if (textLogDumpFile) {
             fflush(textLogDumpFile);
             fclose(textLogDumpFile);
@@ -139,6 +163,67 @@ public:
     }
 
 private:
+
+    void initSocket() {
+        // Initialize Winsock
+        WSADATA wsaData;
+        int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+        if (iResult != NO_ERROR) {
+            printf("WSAStartup function failed with error: %d\n", iResult);
+            isSocketDumpEnabled = false;
+            return;
+        }
+
+        SOCKET newSocket;
+        newSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (newSocket == INVALID_SOCKET) {
+            printf("socket function failed with error: %d\n", WSAGetLastError());
+            WSACleanup();
+            isSocketDumpEnabled = false;
+            return;
+        }
+
+        // The sockaddr_in structure specifies the address family,
+        // IP address, and port of the server to be connected to.
+        sockaddr_in clientService{};
+        clientService.sin_family = AF_INET;
+        InetPton(AF_INET, socketHost, &clientService.sin_addr.s_addr);
+        clientService.sin_port = htons(socketPort);
+
+        // Connect to server.
+        iResult = connect(newSocket, (SOCKADDR*)&clientService, sizeof(clientService));
+        if (iResult == SOCKET_ERROR) {
+            printf("socket connect function failed with error: %d\n", WSAGetLastError());
+            iResult = closesocket(newSocket);
+            if (iResult == SOCKET_ERROR)
+                printf("closesocket function failed with error: %d\n", WSAGetLastError());
+            WSACleanup();
+            isSocketDumpEnabled = false;
+            return;
+        }
+
+        printf("Success connected to server.\n");
+        dumpSocket = newSocket;
+    }
+
+    void destroySocket() {
+        if (dumpSocket)
+        {
+            int iResult = shutdown(dumpSocket, SD_SEND);
+            if (iResult == SOCKET_ERROR) {
+                printf("socket shutdown failed: %d\n", WSAGetLastError());
+            }
+
+            iResult = closesocket(dumpSocket);
+            if (iResult == SOCKET_ERROR) {
+                printf("closesocket function failed with error: %d\n", WSAGetLastError());
+            }
+
+            WSACleanup();
+
+            dumpSocket = NULL;
+        }
+    }
 
     // saves the packet in Trinity's WPP format
     // https://github.com/TrinityCore/WowPacketParser
