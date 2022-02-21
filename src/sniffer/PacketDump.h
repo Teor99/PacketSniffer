@@ -23,19 +23,69 @@
 class PacketDump
 {
 private:
-    boolean isTextDumpEnabled = false;
-    boolean isBinaryDumpEnabled = false;
-    boolean isSocketDumpEnabled = false;
+    boolean isTextLogDumpEnabled = true;
+    boolean isBinaryDumpEnabled = true;
 
-    char textTextFilePath[MAX_PATH];
-    char textDumpFilePath[MAX_PATH];
-    FILE* textDumpFile;
-    FILE* binaryDumpFile;
+    char textLogDumpFilePath[MAX_PATH] = {0};
+    char binaryDumpFilePath[MAX_PATH] = {0};
+
+    FILE* textLogDumpFile = nullptr;
+    FILE* binaryDumpFile = nullptr;
 
 
 public:
+    PacketDump(char *dllDirPath, WORD buildNumber) {
+        // gets time/date
+        time_t rawTime;
+        DWORD now;
+        now = (DWORD) time(&rawTime);
+        tm* date = localtime(&rawTime);
 
-    static PacketDump* ptr;
+        // basic file name format:
+        // wowsniff_buildNumber_unixTimeStamp_dateYear_dateMonth_dateDay_dateHour_dateMinute_dateSecond.[log/bin]
+        char fileNameTemplate[64];
+        // the "user friendly" file, .log
+        char fileNameText[64];
+        // the binary file, .bin
+        char fileNameBinary[64];
+
+        // fills the basic file name format
+        _snprintf(fileNameTemplate,
+                  sizeof(fileNameTemplate),
+                  "wowsniff_%hu_%u_%d-%02d-%02d_%02d-%02d-%02d",
+                  buildNumber,
+                  now,
+                  date->tm_year + 1900,
+                  date->tm_mon + 1,
+                  date->tm_mday,
+                  date->tm_hour,
+                  date->tm_min,
+                  date->tm_sec);
+
+        // fills the specific file names
+        _snprintf(fileNameText, sizeof(fileNameText), "%s.log", fileNameTemplate);
+        _snprintf(fileNameBinary, sizeof(fileNameBinary), "%s.bin", fileNameTemplate);
+
+        // some info
+        printf("Text log dump: %s\n", fileNameText);
+        printf("Binary dump:   %s\n\n", fileNameBinary);
+
+        // simply appends the file names to the DLL's location
+        _snprintf(textLogDumpFilePath, sizeof(textLogDumpFilePath), "%s\\%s", dllDirPath, fileNameText);
+        _snprintf(binaryDumpFilePath, sizeof(binaryDumpFilePath), "%s\\%s", dllDirPath, fileNameBinary);
+    }
+
+    virtual ~PacketDump() {
+        if (textLogDumpFile) {
+            fflush(textLogDumpFile);
+            fclose(textLogDumpFile);
+        }
+
+        if (binaryDumpFile) {
+            fflush(binaryDumpFile);
+            fclose(binaryDumpFile);
+        }
+    }
 
     enum PacketType
     {
@@ -45,77 +95,102 @@ public:
 
     // just this method should be used "globally"
     // basically logs the packets via other private functions
-    void DumpPacket(PacketType packetType,
-                           DWORD packetOpcode,
-                           DWORD packetSize,
-                           DWORD buffer,
-                           WORD initialReadOffset)
+    void dumpPacket(PacketType packetType,
+                    DWORD packetOpcode,
+                    DWORD packetSize,
+                    DWORD buffer,
+                    WORD initialReadOffset)
     {
         // gets the time
         time_t rawTime;
         time(&rawTime);
 
-        if (ptr == NULL) return;
+        // dumps the binary format of the packet
+        dumpPacketBinary(packetType,
+                         packetOpcode,
+                         packetSize,
+                         buffer,
+                         rawTime,
+                         initialReadOffset);
 
-        if (ptr->isBinaryDumpEnabled) {
-            // dumps the binary format of the packet
-            DumpPacketBinary(ptr->binaryDumpFile,
-                             packetType,
-                             packetOpcode,
-                             packetSize,
-                             buffer,
-                             rawTime,
-                             initialReadOffset);
+        // dumps the "user friendly" format of the packet
+        dumpPacketTextLog(packetType,
+                          packetOpcode,
+                          packetSize,
+                          buffer,
+                          rawTime,
+                          initialReadOffset);
 
-            fflush(ptr->binaryDumpFile);
-        }
-
-        if (ptr->isTextDumpEnabled) {
-            // dumps the "user friendly" format of the packet
-            DumpPacketUserFriendly(ptr->textDumpFile,
-                                   packetType,
-                                   packetOpcode,
-                                   packetSize,
-                                   buffer,
-                                   rawTime,
-                                   initialReadOffset);
-            fflush(ptr->textDumpFile);
-        }
     }
 
 private:
-    void DumpPacketUserFriendly(FILE* file, PacketType packetType, DWORD packetOpcode, DWORD packetSize, DWORD buffer, time_t timestamp, WORD initialReadOffset)
-    {
+
+    // saves the packet in Trinity's WPP format
+    // https://github.com/TrinityCore/WowPacketParser
+    void dumpPacketBinary(PacketType packetType, DWORD packetOpcode, DWORD packetSize, DWORD buffer, time_t timestamp, WORD initialReadOffset) {
+        if (!isBinaryDumpEnabled) return;
+
+        if (!binaryDumpFile) {
+            binaryDumpFile = fopen(binaryDumpFilePath, "wb"); // binary mode
+
+            if (!binaryDumpFile) {
+                printf("Cannot open file: %s, error code: %d - %s", binaryDumpFilePath, errno, strerror(errno));
+                isBinaryDumpEnabled = false;
+                return;
+            }
+        }
+
+        fwrite(&packetOpcode,       4, 1, binaryDumpFile); // opcode
+        fwrite(&packetSize,         4, 1, binaryDumpFile); // size of the packet
+        fwrite((DWORD*)&timestamp,  4, 1, binaryDumpFile); // timestamp of the packet
+        fwrite((BYTE*)&packetType,  1, 1, binaryDumpFile); // direction of the packet
+
+        // loops over the packet and saves the data
+        for (DWORD i = 0; i < packetSize; ++i)
+        {
+            BYTE byte = *(BYTE*)(buffer + initialReadOffset + i);
+            fwrite(&byte, 1, 1, binaryDumpFile);
+        }
+
+        fflush(binaryDumpFile);
+    }
+
+    void dumpPacketTextLog(PacketType packetType, DWORD packetOpcode, DWORD packetSize, DWORD buffer, time_t timestamp, WORD initialReadOffset) {
+        if (!isTextLogDumpEnabled) return;
+
+        if (!textLogDumpFile) {
+            textLogDumpFile = fopen(textLogDumpFilePath, "w"); // text mode
+
+            if (!textLogDumpFile) {
+                printf("Cannot open file: %s, error code: %d - %s", textLogDumpFilePath, errno, strerror(errno));
+                isTextLogDumpEnabled = false;
+                return;
+            }
+        }
 
         // writes a header and a ruler
-        WriteUserFriendlyHeader(file, packetType, packetOpcode, packetSize, timestamp);
-        WriteUserFriendlyRuler(file);
+        WriteTextLogHeader(textLogDumpFile, packetType, packetOpcode, packetSize, timestamp);
+        WriteTextLogRuler(textLogDumpFile);
 
         // really dumps the packet's data
-        WriteUserFriendlyPacketDump(file, packetType, buffer, packetSize, initialReadOffset);
+        WriteTextLogPacketDump(textLogDumpFile, packetType, buffer, packetSize, initialReadOffset);
 
         // ruler again
-        WriteUserFriendlyRuler(file);
-        fprintf(file, "\n\n");
+        WriteTextLogRuler(textLogDumpFile);
+        fprintf(textLogDumpFile, "\n\n");
+
+        fflush(textLogDumpFile);
     }
 
     // a header which contains some details about the packet
     // packet direction, opcode, size, timestamp, date
-    void WriteUserFriendlyHeader(FILE* file, PacketType packetType, DWORD packetOpcode, DWORD packetSize, time_t timestamp)
-    {
-        // packet direction string
-        char* packetTypeString = "";
-        if (packetType == PACKET_TYPE_C2S)
-            packetTypeString = "CMSG";
-        else
-            packetTypeString = "SMSG";
-
+    void WriteTextLogHeader(FILE* file, PacketType packetType, DWORD packetOpcode, DWORD packetSize, time_t timestamp) {
         tm* date = localtime(&timestamp);
         // date format
         char dateStr[32];
         // fills the date, format: YYYY. mm. dd. - HH:ii:ss
         _snprintf(dateStr,
-                  32,
+                  sizeof(dateStr),
                   "%d. %02d. %02d. - %02d:%02d:%02d",
                   date->tm_year + 1900,
                   date->tm_mon + 1,
@@ -126,9 +201,9 @@ private:
 
         // the 2 rows header
         fprintf(file,
-                "Packet type: %s, Opcode: 0x%04X, Packet size: %u bytes\n"
-                "Timestamp: %u, Date: %s\n",
-                packetTypeString,
+                "Packet type: %s, Opcode: 0x%04lX, Packet size: %lu bytes\n"
+                "Timestamp: %lu, Date: %s\n",
+                packetType == PACKET_TYPE_C2S ? "CMSG" : "SMSG",
                 packetOpcode,
                 packetSize,
                 (DWORD)timestamp,
@@ -136,17 +211,17 @@ private:
     }
 
     // a "ruler" which makes easier to read the "user friendly" dump
-    void WriteUserFriendlyRuler(FILE* file)
+    void WriteTextLogRuler(FILE* file)
     {
         char* ruler =
         "|--------|-------------------------------------------------|---------------------------------|\n"
         "|        | 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F | 0 1 2 3 4 5 6 7 8 9 A B C D E F |\n"
         "|--------|-------------------------------------------------|---------------------------------|\n";
-        fprintf(file, ruler);
+        fprintf(file, "%s", ruler);
     }
 
     // the real work of the "user friendly" packet
-    void WriteUserFriendlyPacketDump(FILE* file, PacketType packetType, DWORD buffer, DWORD packetSize, WORD initialReadOffset)
+    void WriteTextLogPacketDump(FILE* file, PacketType packetType, DWORD buffer, DWORD packetSize, WORD initialReadOffset)
     {
         // empty packet
         if (packetSize == 0)
@@ -163,7 +238,7 @@ private:
         {
             if (i % 0x10 != 0)
                 continue;
-            fprintf(file, "| 0x%04X | ", i + 1);
+            fprintf(file, "| 0x%04lX | ", i + 1);
             for (DWORD j = 0; j < 0x10; ++j)
             {
                 if ((i + j) > packetSize - 1)
@@ -189,29 +264,6 @@ private:
                 for (DWORD j = 0; j < i + 0x10 - packetSize; ++j)
                     fprintf(file, "%s", "  ");
             fprintf(file, "%s\n", "|");
-        }
-    }
-
-    // saves the packet in Trinity's WPP format
-    // https://github.com/TrinityCore/WowPacketParser
-    void DumpPacketBinary(FILE* file,
-                                 PacketType packetType,
-                                 DWORD packetOpcode,
-                                 DWORD packetSize,
-                                 DWORD buffer,
-                                 time_t timestamp,
-                                 WORD initialReadOffset)
-    {
-        fwrite(&packetOpcode,       4, 1, file); // opcode
-        fwrite(&packetSize,         4, 1, file); // size of the packet
-        fwrite((DWORD*)&timestamp,  4, 1, file); // timestamp of the packet
-        fwrite((BYTE*)&packetType,  1, 1, file); // direction of the packet
-
-        // loops over the packet and saves the data
-        for (DWORD i = 0; i < packetSize; ++i)
-        {
-            BYTE byte = *(BYTE*)(buffer + initialReadOffset + i);
-            fwrite(&byte, 1, 1, file);
         }
     }
 };

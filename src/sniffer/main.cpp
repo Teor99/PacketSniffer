@@ -97,6 +97,8 @@ BYTE defaultMachineCodeRecv[JMP_INSTRUCTION_SIZE] = { 0 };
 bool sendHookGood = false;
 bool recvHookGood = false;
 
+PacketDump *packetDump = nullptr;
+
 // basically this method controls what the sniffer should do
 // pretty much like a "main method"
 DWORD MainThreadControl(LPVOID /* param */);
@@ -124,16 +126,12 @@ BOOL APIENTRY DllMain(HINSTANCE instDLL, DWORD reason, LPVOID /* reserved */)
     // the DLL is being unloaded
     else if (reason == DLL_PROCESS_DETACH)
     {
-        if (PacketDump::textDumpFile)
-        {
-            fflush(PacketDump::textDumpFile);
-            fclose(PacketDump::textDumpFile);
+        // destroy PacketDump
+        if (packetDump) {
+            delete packetDump;
+            packetDump = nullptr;
         }
-        if (PacketDump::binaryDumpFile)
-        {
-            fflush(PacketDump::binaryDumpFile);
-            fclose(PacketDump::binaryDumpFile);
-        }
+
         // deallocates the console
         ConsoleManager::Destroy();
     }
@@ -156,11 +154,6 @@ DWORD MainThreadControl(LPVOID /* param */)
     printf("(and exit from the sniffer).\n");
     printf("Note: you can simply re-attach the sniffer without ");
     printf("restarting the WoW.\n\n");
-
-    printf("User friendly format dump is disabled by default.\n");
-    printf("To enable just create a file which name is ");
-    printf("\"dump_user_friendly\".\nDelete if you want to disable it.\n");
-    printf("You can NOT enable/disable if you sniffer already started.\n\n");
 
     // inits the HookManager
     HookEntryManager::FillHookEntries();
@@ -203,13 +196,6 @@ DWORD MainThreadControl(LPVOID /* param */)
         FreeLibraryAndExitThread((HMODULE)instanceDLL, 0);
     }
 
-
-
-    // gets time/date
-    time_t rawTime;
-    DWORD now = (DWORD)time(&rawTime);
-    tm* date = localtime(&rawTime);
-
     // path of the DLL
     char dllPath[MAX_PATH];
     // gets where is the DLL which injected into the client
@@ -225,49 +211,11 @@ DWORD MainThreadControl(LPVOID /* param */)
     }
     printf("\nDLL path: %s\n", dllPath);
 
-    // basic file name format:
-    // wowsniff_buildNumber_unixTimeStamp_dateYear_dateMonth_dateDay_dateHour_dateMinute_dateSecond.[log/bin]
-    char fileName[64];
-    // the "user friendly" file, .log
-    char fileNameUserFriendly[64];
-    // the binary file, .bin
-    char fileNameBinary[64];
-
-    // fills the basic file name format
-    _snprintf(fileName,
-              64,
-              "wowsniff_%hu_%u_%dy%02dm%02dd%02dh%02di%02ds",
-              buildNumber,
-              now,
-              date->tm_year + 1900,
-              date->tm_mon + 1,
-              date->tm_mday,
-              date->tm_hour,
-              date->tm_min,
-              date->tm_sec);
-    // fills the specific file names
-    _snprintf(fileNameUserFriendly, 64, "%s.log", fileName);
-    _snprintf(fileNameBinary, 64, "%s.bin", fileName);
-
-    // some info
-    printf("User friendly dump: %s\n", fileNameUserFriendly);
-    printf("Binary dump:        %s\n\n", fileNameBinary);
-
     // removes the DLL name from the path
     PathRemoveFileSpec(dllPath);
 
-    // simply appends the file names to the DLL's location
-    _snprintf(logPath, MAX_PATH, "%s\\%s", dllPath, fileNameUserFriendly);
-    _snprintf(binPath, MAX_PATH, "%s\\%s", dllPath, fileNameBinary);
-
-    // "calculates" the path of the file which enables
-    // the "user friendly" log format
-    _snprintf(PacketDump::enableUserFriendlyPath,
-              MAX_PATH,
-              "%s\\%s",
-              dllPath,
-              PacketDump::enableUserFriendlyFileName);
-
+    // init PacketDump
+    packetDump = new PacketDump(dllPath, buildNumber);
 
     // get the base address of the current process
     DWORD baseAddress = (DWORD)GetModuleHandle(NULL);
@@ -313,7 +261,6 @@ DWORD MainThreadControl(LPVOID /* param */)
             printf("Invalid hook expansion: %d\n\n", (int)hookVersion);
             system("pause");
             FreeLibraryAndExitThread((HMODULE)instanceDLL, 0);
-            break;
     }
 
     // hooks client's recv function
@@ -336,7 +283,6 @@ DWORD MainThreadControl(LPVOID /* param */)
     // note: after that DLL's entry point will be called with
     // reason DLL_PROCESS_DETACH
     FreeLibraryAndExitThread((HMODULE)instanceDLL, 0);
-    return 0;
 }
 
 DWORD __fastcall SendHook(void* thisPTR,
@@ -352,10 +298,10 @@ DWORD __fastcall SendHook(void* thisPTR,
 
     WORD initialReadOffset = packetOpcodeSize;
     // dumps the packet
-    if (PacketDump::ptr != nullptr) {
-        PacketDump::ptr->DumpPacket(PacketDump::PACKET_TYPE_C2S,
+    if (packetDump) {
+        packetDump->dumpPacket(PacketDump::PACKET_TYPE_C2S,
                                     packetOcode,
-                                           packetSize - packetOpcodeSize,
+                                    packetSize - packetOpcodeSize,
                                     buffer,
                                     initialReadOffset);
     }
@@ -366,15 +312,6 @@ DWORD __fastcall SendHook(void* thisPTR,
     // now let's call client's function
     // so it can send the packet to the server
     DWORD returnValue = SendProto(sendAddress)(thisPTR, param1, param2);
-
-    // something wrong with the file opening
-//    if (!PacketDump::binaryDumpFile ||
-//        (PacketDump::IsUserFriendlyLogEnabled() &&
-//         !PacketDump::textDumpFile))
-//    {
-//        isSigIntOccured = true;
-//        return returnValue;
-//    }
 
     // hooks again to catch the next outgoing packets also
     HookManager::ReHook(sendAddress, machineCodeHookSend);
@@ -406,12 +343,12 @@ DWORD __fastcall RecvHook_PreWOD(void* thisPTR,
 
     WORD initialReadOffset = packetOpcodeSize;
     // packet dump
-    if (PacketDump::ptr != nullptr) {
-        PacketDump::ptr->DumpPacket(PacketDump::PACKET_TYPE_S2C,
-                           packetOcode,
-                           packetSize - packetOpcodeSize,
-                           buffer,
-                           initialReadOffset);
+    if (packetDump) {
+        packetDump->dumpPacket(PacketDump::PACKET_TYPE_S2C,
+                                    packetOcode,
+                                    packetSize - packetOpcodeSize,
+                                    buffer,
+                                    initialReadOffset);
     }
 
     // unhooks the recv function
@@ -451,12 +388,13 @@ DWORD __fastcall RecvHook_WOD(void* thisPTR,
 
     WORD initialReadOffset = 4;
     // packet dump
-    if (PacketDump::ptr != nullptr) {
-        PacketDump::ptr->DumpPacket(PacketDump::PACKET_TYPE_S2C,
+    if (packetDump) {
+        packetDump->dumpPacket(PacketDump::PACKET_TYPE_S2C,
                                     packetOcode,
                                     packetSize - initialReadOffset,
                                     buffer,
                                     initialReadOffset);
+    }
 
     // unhooks the recv function
     HookManager::UnHook(recvAddress, defaultMachineCodeRecv);
