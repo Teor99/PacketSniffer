@@ -48,4 +48,9 @@ if(WIN32)
                        ${CMAKE_COMMAND} -E copy
                        ${PROJECT_SOURCE_DIR}/config.ini
                        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+
+    add_custom_command(TARGET sniffer POST_BUILD COMMAND
+                       ${CMAKE_COMMAND} -E copy
+                       ${PROJECT_SOURCE_DIR}/launch.bat
+                       ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 endif()
