@@ -101,7 +101,7 @@ int main(int argc, char* argv[])
     DWORD processID = 0;
 
     // tries to get the PIDs
-    PIDList& pids = GetProcessIDsByName(lookingProcessName);
+    PIDList pids = GetProcessIDsByName(lookingProcessName);
 
     // default process (Wow.exe) doesn't exist
     // there is no custom process name given
