@@ -97,21 +97,6 @@ BYTE defaultMachineCodeRecv[JMP_INSTRUCTION_SIZE] = { 0 };
 bool sendHookGood = false;
 bool recvHookGood = false;
 
-// location of the "user friendly" packet dump file
-char logPath[MAX_PATH] = { 0 };
-// location of the binary packet dump file
-char binPath[MAX_PATH] = { 0 };
-
-/* static */ char PacketDump::enableUserFriendlyPath[MAX_PATH] = { 0 };
-/* static */ char
-             PacketDump::enableUserFriendlyFileName[] = "dump_user_friendly";
-
-/* static */ FILE* PacketDump::userFriendlyDumpFile = NULL;
-/* static */ FILE* PacketDump::binaryDumpFile = NULL;
-
-/* static */ PacketDump::UserFiendlyLogStatus
-             PacketDump::_userFiendlyLogStatus = USER_FRIENDLY_LOG_NOT_CHECKED;
-
 // basically this method controls what the sniffer should do
 // pretty much like a "main method"
 DWORD MainThreadControl(LPVOID /* param */);
@@ -139,10 +124,10 @@ BOOL APIENTRY DllMain(HINSTANCE instDLL, DWORD reason, LPVOID /* reserved */)
     // the DLL is being unloaded
     else if (reason == DLL_PROCESS_DETACH)
     {
-        if (PacketDump::userFriendlyDumpFile)
+        if (PacketDump::textDumpFile)
         {
-            fflush(PacketDump::userFriendlyDumpFile);
-            fclose(PacketDump::userFriendlyDumpFile);
+            fflush(PacketDump::textDumpFile);
+            fclose(PacketDump::textDumpFile);
         }
         if (PacketDump::binaryDumpFile)
         {
@@ -367,13 +352,13 @@ DWORD __fastcall SendHook(void* thisPTR,
 
     WORD initialReadOffset = packetOpcodeSize;
     // dumps the packet
-    PacketDump::DumpPacket(logPath,
-                           binPath,
-                           PacketDump::PACKET_TYPE_C2S,
-                           packetOcode,
-                           packetSize - packetOpcodeSize,
-                           buffer,
-                           initialReadOffset);
+    if (PacketDump::ptr != nullptr) {
+        PacketDump::ptr->DumpPacket(PacketDump::PACKET_TYPE_C2S,
+                                    packetOcode,
+                                           packetSize - packetOpcodeSize,
+                                    buffer,
+                                    initialReadOffset);
+    }
 
     // unhooks the send function
     HookManager::UnHook(sendAddress, defaultMachineCodeSend);
@@ -383,13 +368,13 @@ DWORD __fastcall SendHook(void* thisPTR,
     DWORD returnValue = SendProto(sendAddress)(thisPTR, param1, param2);
 
     // something wrong with the file opening
-    if (!PacketDump::binaryDumpFile ||
-        (PacketDump::IsUserFriendlyLogEnabled() &&
-         !PacketDump::userFriendlyDumpFile))
-    {
-        isSigIntOccured = true;
-        return returnValue;
-    }
+//    if (!PacketDump::binaryDumpFile ||
+//        (PacketDump::IsUserFriendlyLogEnabled() &&
+//         !PacketDump::textDumpFile))
+//    {
+//        isSigIntOccured = true;
+//        return returnValue;
+//    }
 
     // hooks again to catch the next outgoing packets also
     HookManager::ReHook(sendAddress, machineCodeHookSend);
@@ -421,13 +406,13 @@ DWORD __fastcall RecvHook_PreWOD(void* thisPTR,
 
     WORD initialReadOffset = packetOpcodeSize;
     // packet dump
-    PacketDump::DumpPacket(logPath,
-                           binPath,
-                           PacketDump::PACKET_TYPE_S2C,
+    if (PacketDump::ptr != nullptr) {
+        PacketDump::ptr->DumpPacket(PacketDump::PACKET_TYPE_S2C,
                            packetOcode,
                            packetSize - packetOpcodeSize,
                            buffer,
                            initialReadOffset);
+    }
 
     // unhooks the recv function
     HookManager::UnHook(recvAddress, defaultMachineCodeRecv);
@@ -466,13 +451,12 @@ DWORD __fastcall RecvHook_WOD(void* thisPTR,
 
     WORD initialReadOffset = 4;
     // packet dump
-    PacketDump::DumpPacket(logPath,
-                           binPath,
-                           PacketDump::PACKET_TYPE_S2C,
-                           packetOcode,
-                           packetSize - initialReadOffset,
-                           buffer,
-                           initialReadOffset);
+    if (PacketDump::ptr != nullptr) {
+        PacketDump::ptr->DumpPacket(PacketDump::PACKET_TYPE_S2C,
+                                    packetOcode,
+                                    packetSize - initialReadOffset,
+                                    buffer,
+                                    initialReadOffset);
 
     // unhooks the recv function
     HookManager::UnHook(recvAddress, defaultMachineCodeRecv);
