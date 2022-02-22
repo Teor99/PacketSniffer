@@ -17,10 +17,14 @@ usage: ```injector.exe [wow_exe_name]```
 * Can detect the targeted WoW process build number so supports multiple builds.
 * Can detect if multiple processes have the same name (which should be injected) and gives choice which should be injected.
 * Can detect if a process is already injected.
-* Dumps packets to a binary file which is can be parsed by TrinityCore's WowPacketParser which is
-available at here: https://github.com/TrinityCore/WowPacketParser
-* Dumps packets to a "user friendly" log file which makes possible to read the packets without parsing them.
-This feature is disabled by default. Read the "Usage" section to know how to enable it.
+* Dumps packets to a binary file which is can be parsed by https://github.com/TrinityCore/WowPacketParser
+* Dumps packets to a text log file which makes possible to read the packets without parsing them.
+This feature is disabled by default.
+* :new: Add config.ini file for start settings.
+* :new: Add dump packet to remote server https://github.com/Teor99/WOWSnifferServer via socket connection.
+
+## Config
+Open config.ini file and change values for your needs
 
 ## Usage
 * You need injector.exe and sniffer.dll in the same directory.
@@ -29,8 +33,6 @@ Note: like other (most) sniffers this directory can be different than WoW's dire
 * That's all. You can start PacketSniffer at anytime.
 * If you want to close the sniffer just press CTRL-C or close the WoW. Note: CTRL-C works only in fullscreen mode.
 * Log files are created to where PacketSniffer is.
-* Create an empty file (name: dump_user_friendly) where the PacketSniffer is to enable the "user friendly" log format.
-Just delete (or rename) this file if you want to disable it again. You can NOT enable or disable while WoW is running.
 
 ## Supported clients
 * Classic/Vanilla: 5875

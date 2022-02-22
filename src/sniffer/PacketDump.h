@@ -85,9 +85,9 @@ public:
         // read config
         isBinaryDumpEnabled = GetPrivateProfileInt("Settings", "enableDumpPacketsToBinaryFile", 0, configFilePath) > 0;
         isTextLogDumpEnabled = GetPrivateProfileInt("Settings", "enableDumpPacketsToTextLogFile", 0, configFilePath) > 0;
-        isSocketDumpEnabled = GetPrivateProfileInt("Settings", "enableDumpPacketsToSocket", 0, configFilePath) > 0;
-        GetPrivateProfileString("Settings", "socketHost", "127.0.0.1", socketHost, sizeof(socketHost), configFilePath);
-        socketPort = GetPrivateProfileInt("Settings", "socketPort", 6666, configFilePath);
+        isSocketDumpEnabled = GetPrivateProfileInt("Settings", "enableDumpPacketsToServer", 0, configFilePath) > 0;
+        GetPrivateProfileString("Settings", "serverHost", "127.0.0.1", socketHost, sizeof(socketHost), configFilePath);
+        socketPort = GetPrivateProfileInt("Settings", "serverPort", 6666, configFilePath);
 
         // some info
         if (isBinaryDumpEnabled) {
